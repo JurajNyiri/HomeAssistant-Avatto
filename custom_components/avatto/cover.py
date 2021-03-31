@@ -36,6 +36,7 @@ class AvattoCoverEntity(CoverEntity):
         else:
             self.isAvailable = True
             self.dps = dps["dps"]
+        self.position = self.dps["3"]
 
     @property
     def icon(self):
@@ -49,6 +50,7 @@ class AvattoCoverEntity(CoverEntity):
         else:
             self.isAvailable = True
             self.dps = newDPS["dps"]
+        self.position = self.dps["3"]
 
     def update(self):
         self.manualUpdate()
@@ -82,12 +84,12 @@ class AvattoCoverEntity(CoverEntity):
         """Return current position of cover.
         None is unknown, 0 is closed, 100 is fully open.
         """
-        return self.dps["3"]
+        return self.position
 
     @property
     def is_closed(self):
         """Return if the cover is closed."""
-        return self.dps["3"] == 100
+        return self.position == 100
 
     def close_cover(self, **kwargs):
         setState(self.deviceID, self.deviceKey, self.deviceIP, 100, 2)
@@ -96,4 +98,5 @@ class AvattoCoverEntity(CoverEntity):
         setState(self.deviceID, self.deviceKey, self.deviceIP, 0, 2)
 
     def set_cover_position(self, **kwargs):
+        self.position = kwargs[ATTR_POSITION]
         setState(self.deviceID, self.deviceKey, self.deviceIP, kwargs[ATTR_POSITION], 2)
