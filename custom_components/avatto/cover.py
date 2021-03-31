@@ -58,7 +58,7 @@ class AvattoCoverEntity(CoverEntity):
         else:
             self.isAvailable = True
             self.dps = dps["dps"]
-        self.position = int(self.dps["3"])
+        self.position = 100 - int(self.dps["3"])
 
     @property
     def icon(self):
@@ -72,7 +72,7 @@ class AvattoCoverEntity(CoverEntity):
         else:
             self.isAvailable = True
             self.dps = newDPS["dps"]
-        self.position = int(self.dps["3"])
+        self.position = 100 - int(self.dps["3"])
 
     def update(self):
         self.manualUpdate()
@@ -111,41 +111,41 @@ class AvattoCoverEntity(CoverEntity):
     @property
     def is_closed(self):
         """Return if the cover is closed."""
-        return int(self.position) == 100
+        return int(self.position) == 0
 
     def close_cover(self, **kwargs):
-        return self.setPosition(100)
+        return self.setPosition(0)
 
     def open_cover(self, **kwargs):
-        return self.setPosition(0)
+        return self.setPosition(100)
 
     def set_cover_position(self, **kwargs):
         self.setPosition(kwargs[ATTR_POSITION])
 
     def setPosition(self, newPosition, retries=0):
-        oldPosition = self.dps["3"]
+        oldPosition = self.current_cover_position
         queries = 1
         entity = self.hass.data[DOMAIN][self.entryID]["entities"][0]
         if oldPosition != newPosition:
             if newPosition < oldPosition:
-                self._state = "opening"
-            else:
                 self._state = "closing"
+            else:
+                self._state = "opening"
             self.position = int(newPosition)
             # todo: calculate properly
             calculatedPosition = oldPosition
-            setState(self.deviceID, self.deviceKey, self.deviceIP, newPosition, 2)
+            setState(self.deviceID, self.deviceKey, self.deviceIP, 100 - newPosition, 2)
             self.manualUpdate()
             while (
-                self.dps["3"] != newPosition
+                100 - self.dps["3"] != newPosition
                 and queries * POSITION_UPDATE_INTERVAL <= MAX_POSITION_WAIT_TIME
             ):
-                if newPosition < oldPosition:
-                    if calculatedPosition > newPosition:
-                        calculatedPosition = calculatedPosition - 1
-                else:
+                if newPosition > oldPosition:
                     if calculatedPosition < newPosition:
                         calculatedPosition = calculatedPosition + 1
+                else:
+                    if calculatedPosition > newPosition:
+                        calculatedPosition = calculatedPosition - 1
                 time.sleep(POSITION_UPDATE_INTERVAL / 1000)
                 self.manualUpdate()
                 self.position = int(calculatedPosition)
