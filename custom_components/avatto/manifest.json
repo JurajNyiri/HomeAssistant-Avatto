@@ -1,0 +1,10 @@
+{
+  "domain": "avatto",
+  "name": "Avatto",
+  "documentation": "https://github.com/JurajNyiri/HomeAssistant-Avatto",
+  "dependencies": [],
+  "codeowners": ["@JurajNyiri"],
+  "requirements": ["tinytuya==1.1.2"],
+  "version": "1.0",
+  "config_flow": true
+}

@@ -1,0 +1,31 @@
+{
+  "title": "Avatto",
+  "config": {
+    "step": {
+      "device_select": {
+        "data": {
+          "DEVICE_IP": "Device IP"
+        },
+        "description": "Choose device"
+      },
+      "device_data": {
+        "data": {
+          "DEVICE_KEY": "Device Key"
+        },
+        "description": "Enter device key.\n\nSee README on GitHub to figure out how to obtain it."
+      },
+      "device_manual": {
+        "data": {
+          "DEVICE_IP": "Device IP",
+          "DEVICE_KEY": "Device Key",
+          "DEVICE_ID": "Device ID"
+        },
+        "description": "Enter device ID, IP and key.\n\nSee README on GitHub to figure out how to obtain it."
+      }
+    },
+    "error": {
+      "unknown": "Unknown error",
+      "auth_error": "Invalid key"
+    }
+  }
+}
