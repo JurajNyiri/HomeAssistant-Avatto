@@ -12,6 +12,8 @@ from .const import (
     SUPPORT_FLAGS,
     MAX_POSITION_WAIT_TIME,
     POSITION_UPDATE_INTERVAL,
+    DOMAIN,
+    MAX_RETRIES,
 )
 from homeassistant.components.cover import CoverEntity, ATTR_POSITION
 import time
@@ -27,7 +29,15 @@ async def async_setup_entry(
             entry.data.get(DEVICE_IP),
         )
 
-        return async_add_entities([AvattoCoverEntity(hass, entry, dps,)])
+        entity = AvattoCoverEntity(hass, entry, dps,)
+        if DOMAIN not in hass.data:
+            hass.data[DOMAIN] = {}
+        hass.data[DOMAIN][entry.entry_id] = {}
+        hass.data[DOMAIN][entry.entry_id]["entities"] = [
+            entity,
+        ]
+
+        return async_add_entities(hass.data[DOMAIN][entry.entry_id]["entities"])
     except Exception as e:
         _LOGGER.error(e)
     return False
@@ -39,6 +49,8 @@ class AvattoCoverEntity(CoverEntity):
         self.deviceIP = entry.data.get(DEVICE_IP)
         self.deviceID = entry.data.get(DEVICE_ID)
         self.deviceKey = entry.data.get(DEVICE_KEY)
+        self.entryID = entry.entry_id
+        self._state = "idle"
         self._icon = "mdi:blinds"
         if dps is False:
             self.isAvailable = False
@@ -46,7 +58,7 @@ class AvattoCoverEntity(CoverEntity):
         else:
             self.isAvailable = True
             self.dps = dps["dps"]
-        self.position = self.dps["3"]
+        self.position = int(self.dps["3"])
 
     @property
     def icon(self):
@@ -60,7 +72,7 @@ class AvattoCoverEntity(CoverEntity):
         else:
             self.isAvailable = True
             self.dps = newDPS["dps"]
-        self.position = self.dps["3"]
+        self.position = int(self.dps["3"])
 
     def update(self):
         self.manualUpdate()
@@ -71,7 +83,7 @@ class AvattoCoverEntity(CoverEntity):
 
     @property
     def state(self):
-        return self.dps["7"]
+        return self._state
 
     @property
     def supported_features(self):
@@ -99,28 +111,55 @@ class AvattoCoverEntity(CoverEntity):
     @property
     def is_closed(self):
         """Return if the cover is closed."""
-        return self.position == 100
+        return int(self.position) == 100
 
     def close_cover(self, **kwargs):
-        setState(self.deviceID, self.deviceKey, self.deviceIP, 100, 2)
+        return self.setPosition(100)
 
     def open_cover(self, **kwargs):
-        setState(self.deviceID, self.deviceKey, self.deviceIP, 0, 2)
+        return self.setPosition(0)
 
     def set_cover_position(self, **kwargs):
+        self.setPosition(kwargs[ATTR_POSITION])
+
+    def setPosition(self, newPosition, retries=0):
         oldPosition = self.dps["3"]
-        newPosition = kwargs[ATTR_POSITION]
         queries = 1
+        entity = self.hass.data[DOMAIN][self.entryID]["entities"][0]
         if oldPosition != newPosition:
-            self.position = newPosition
-            setState(
-                self.deviceID, self.deviceKey, self.deviceIP, kwargs[ATTR_POSITION], 2
-            )
+            if newPosition < oldPosition:
+                self._state = "opening"
+            else:
+                self._state = "closing"
+            self.position = int(newPosition)
+            # todo: calculate properly
+            calculatedPosition = oldPosition
+            setState(self.deviceID, self.deviceKey, self.deviceIP, newPosition, 2)
             self.manualUpdate()
             while (
                 self.dps["3"] != newPosition
                 and queries * POSITION_UPDATE_INTERVAL <= MAX_POSITION_WAIT_TIME
             ):
+                if newPosition < oldPosition:
+                    if calculatedPosition > newPosition:
+                        calculatedPosition = calculatedPosition - 1
+                else:
+                    if calculatedPosition < newPosition:
+                        calculatedPosition = calculatedPosition + 1
                 time.sleep(POSITION_UPDATE_INTERVAL / 1000)
                 self.manualUpdate()
+                self.position = int(calculatedPosition)
+                if (queries * POSITION_UPDATE_INTERVAL) % (
+                    POSITION_UPDATE_INTERVAL * 4
+                ) == 0:
+                    entity.async_write_ha_state()
                 queries += 1
+            self.manualUpdate()
+            if int(self.position) != int(newPosition):
+                if retries <= MAX_RETRIES:
+                    _LOGGER.warn("Retrying setting position to " + str(newPosition))
+                    return self.setPosition(newPosition, retries + 1)
+                else:
+                    _LOGGER.error("Failed to set new position.")
+            self._state = "idle"
+            entity.async_write_ha_state()
