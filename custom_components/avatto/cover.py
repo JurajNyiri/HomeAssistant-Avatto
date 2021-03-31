@@ -3,8 +3,18 @@ from homeassistant.config_entries import ConfigEntry
 from typing import Callable
 from .utils import getData, setState
 from homeassistant.util import slugify
-from .const import DEVICE_IP, DEVICE_ID, DEVICE_KEY, _LOGGER, DEFAULT_DPS, SUPPORT_FLAGS
+from .const import (
+    DEVICE_IP,
+    DEVICE_ID,
+    DEVICE_KEY,
+    _LOGGER,
+    DEFAULT_DPS,
+    SUPPORT_FLAGS,
+    MAX_POSITION_WAIT_TIME,
+    POSITION_UPDATE_INTERVAL,
+)
 from homeassistant.components.cover import CoverEntity, ATTR_POSITION
+import time
 
 
 async def async_setup_entry(
@@ -98,5 +108,19 @@ class AvattoCoverEntity(CoverEntity):
         setState(self.deviceID, self.deviceKey, self.deviceIP, 0, 2)
 
     def set_cover_position(self, **kwargs):
-        self.position = kwargs[ATTR_POSITION]
-        setState(self.deviceID, self.deviceKey, self.deviceIP, kwargs[ATTR_POSITION], 2)
+        oldPosition = self.dps["3"]
+        newPosition = kwargs[ATTR_POSITION]
+        queries = 1
+        if oldPosition != newPosition:
+            self.position = newPosition
+            setState(
+                self.deviceID, self.deviceKey, self.deviceIP, kwargs[ATTR_POSITION], 2
+            )
+            self.manualUpdate()
+            while (
+                self.dps["3"] != newPosition
+                and queries * POSITION_UPDATE_INTERVAL <= MAX_POSITION_WAIT_TIME
+            ):
+                time.sleep(POSITION_UPDATE_INTERVAL / 1000)
+                self.manualUpdate()
+                queries += 1
