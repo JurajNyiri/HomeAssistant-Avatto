@@ -94,7 +94,7 @@ class AvattoCoverEntity(CoverEntity):
         return slugify(f"avatto_{self.deviceIP}")
 
     @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         attributes = {}
 
         attributes["countdown"] = self.dps["9"]
